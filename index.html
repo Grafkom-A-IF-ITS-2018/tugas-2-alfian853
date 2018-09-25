@@ -1,0 +1,332 @@
+<html>
+  <head>
+    <title>Tugas 1</title>
+    <meta http-equiv="content-type" content="text/html" charset="ISO-8859-1">
+
+    <script type="text/javascript" src="gl-matrix-min.js"></script>
+
+    <script id="shader-fs" type="x-shader/x-fragment">
+      precision mediump float;
+      varying vec4 vColor;
+      void main(void) {
+        gl_FragColor = vColor;
+      }
+    </script>
+
+    <script id="shader-vs" type="x-shader/x-vertex">
+      attribute vec3 aVertexPosition;
+      attribute vec4 aVertexColor;
+      uniform mat4 uMVMatrix;
+      uniform mat4 uPMatrix;
+      varying vec4 vColor;
+      void main(void) {
+        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        vColor = aVertexColor;
+      }
+    </script>
+    <script type="text/javascript">
+      /** @type {WebGLRenderingContext} */
+      var gl
+      function initGL(canvas) {
+        try {
+          gl = canvas.getContext('webgl')
+          gl.viewportWidth = canvas.width
+          gl.viewportHeight = canvas.height
+        } catch (e) {}
+        if (!gl) {
+          alert('Tidak bisa menginisialisasi WebGL')
+        }
+      }
+      function getShader(gl, id) {
+        var shaderScript = document.getElementById(id)
+        if (!shaderScript) {
+          return null
+        }
+        var str = ''
+        var k = shaderScript.firstChild
+        while (k) {
+          if (k.nodeType == 3) {
+            str += k.textContent
+          }
+          k = k.nextSibling
+        }
+        var shader
+        if (shaderScript.type == 'x-shader/x-fragment') {
+          shader = gl.createShader(gl.FRAGMENT_SHADER)
+        } else if (shaderScript.type = 'x-shader/x-vertex') {
+          shader = gl.createShader(gl.VERTEX_SHADER)
+        } else {
+          return null
+        }
+        gl.shaderSource(shader, str)
+        gl.compileShader(shader)
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          alert(gl.getShaderInfoLog(shader))
+          return null
+        }
+        return shader
+      }
+      var shaderProgram
+      function initShaders() {
+        var fragmentShader = getShader(gl, 'shader-fs')
+        var vertexShader = getShader(gl, 'shader-vs')
+        shaderProgram = gl.createProgram()
+        gl.attachShader(shaderProgram, fragmentShader)
+        gl.attachShader(shaderProgram, vertexShader)
+        gl.linkProgram(shaderProgram)
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+          alert('Tidak bisa menginisialisasi shaders')
+        }
+        gl.useProgram(shaderProgram)
+        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, 'aVertexPosition')
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute)
+        shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, 'aVertexColor')
+        gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute)
+        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, 'uPMatrix')
+        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, 'uMVMatrix')
+      }
+      var mvMatrix = mat4.create()
+      var mvMatrixStack = []
+      var pMatrix = mat4.create()
+      function mvPushMatrix() {
+        var copy = mat4.create()
+        mat4.copy(copy, mvMatrix)
+        mvMatrixStack.push(copy)
+      }
+      function mvPopMatrix() {
+        if (mvMatrixStack.length == 0) {
+          throw "Tumpukan matriks kosong"
+        }
+        mvMatrix = mvMatrixStack.pop()
+      }
+      function setMatrixUniforms() {
+        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix)
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix)
+      }
+      var hurufVertexPositionBuffer
+      var hurufVertexColorBuffer
+      var squareVertexPositionBuffer
+      var squareVertexColorBuffer
+    
+      function toRadians (angle) {
+        return angle * (Math.PI / 180);
+      }
+            //note: column index start from 0
+      function get2DRotation(matrix,degree,nColumn,xCenter,yCenter,xColumnIndex,yColumnIndex){
+        // console.log(xCenter);
+        
+        for(var i = 0;i < matrix.length ;i+=nColumn){
+          var x = matrix[i+xColumnIndex] - xCenter
+          var y = matrix[i+yColumnIndex] - yCenter
+          matrix[i+xColumnIndex] = x*Math.cos(degree) - y*Math.sin(degree) + xCenter
+          matrix[i+yColumnIndex] = x*Math.sin(degree) + y*Math.cos(degree) + yCenter
+        }
+        return matrix 
+      }
+
+      function get3DTranslation(matrix,xMove,yMove,zMove){
+      
+        for(var i=0;i<matrix.length;i+=3){
+          matrix[i]+=xMove
+          matrix[i+1]+=yMove
+          matrix[i+2]+=zMove
+          // console.log("masuk");
+        }
+        return matrix
+      }
+
+      function getRandomRangeNumber(lower,upper){
+        return (Math.random() * (upper - lower) + lower)
+      }
+      
+      function detectColision(matrix1,matrix2){
+        
+
+      }
+      var huruf = {mPos:[],colors:[],x:0.0,y:0.0,z:0.0,x_speed:0.0,y_speed:0.0,z_speed:0.0}
+      var square = {mPos:[],colors:[],x:0.0,y:0.0,z:-5.5,x_speed:0.0,y_speed:0.0,z_speed:0.0}
+
+      function initBuffers() {
+        // Triangle Position
+        hurufVertexPositionBuffer = gl.createBuffer()
+        gl.bindBuffer(gl.ARRAY_BUFFER, hurufVertexPositionBuffer)
+        huruf.mPos = [
+        0.4,0.5,-7,
+        0.4,0.3,-7,
+        -0.5,0.5,-7,
+        -0.5,0.5,-7,
+        -0.5,0.3,-7,
+        0.4,0.3,-7,
+        -0.5,0.3,-7,
+        -0.25,0.3,-7,
+        -0.5,-0.75,-7,
+        -0.25,0.3,-7,
+        -0.5,-0.75,-7,
+        -0.25,-0.75,-7,
+        -0.25,-0.05,-7,
+        -0.25,-0.25,-7,
+        0.3,-0.25,-7,
+        0.3,-0.05,-7,
+        0.3,-0.25,-7,
+        -0.25,-0.05,-7
+      	]
+        huruf.x = -0.375
+        huruf.y = -0.125
+        huruf.z = -7
+        huruf.x_speed = getRandomRangeNumber(-0.02,0.02)
+        huruf.y_speed = getRandomRangeNumber(-0.02,0.02)
+        huruf.z_speed = 0//getRandomRangeNumber(-0.02,0.02)
+        
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(huruf.mPos), gl.STATIC_DRAW)
+        hurufVertexPositionBuffer.itemSize = 3
+        hurufVertexPositionBuffer.numItems = 18
+        // Triangle Color
+        hurufVertexColorBuffer = gl.createBuffer()
+        gl.bindBuffer(gl.ARRAY_BUFFER, hurufVertexColorBuffer)
+        huruf.colors = []
+        for (var i=0; i < hurufVertexPositionBuffer.numItems; i++) {
+          huruf.colors = huruf.colors.concat([Math.random(),Math.random(),Math.random(), 1.0]);
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(huruf.colors), gl.STATIC_DRAW)
+        hurufVertexColorBuffer.itemSize = 4
+        hurufVertexColorBuffer.numItems = 18
+
+
+        // Square Position
+        squareVertexPositionBuffer = gl.createBuffer()
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer)
+        square.mPos = [
+          -1.5,1.5,-7,
+          -1.5,-1.5,-7,
+          1.5,1.5,-7,
+          1.5,-1.5,-7,
+          -1.5,1.5,-7,
+          1.5,1.5,-7,
+          -1.5,-1.5,-7,
+          1.5,-1.5,-7,
+          -1.5,1.5,-4,
+          -1.5,-1.5,-4,
+          1.5,1.5,-4,
+          1.5,-1.5,-4,
+          -1.5,1.5,-4,
+          1.5,1.5,-4,
+          -1.5,-1.5,-4,
+          1.5,-1.5,-4,
+          -1.5,1.5,-7,
+          -1.5,1.5,-4,
+          1.5,1.5,-7,
+          1.5,1.5,-4,
+          1.5,-1.5,-7,
+          1.5,-1.5,-4,
+          -1.5,-1.5,-7,
+          -1.5,-1.5,-4
+        ]
+
+        square.mPos = get2DRotation(square.mPos,toRadians(-40),3,square.x,square.z,0,2)
+
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(square.mPos), gl.STATIC_DRAW)
+        squareVertexPositionBuffer.itemSize = 3
+        squareVertexPositionBuffer.numItems = 24
+        // Square Color
+        squareVertexColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexColorBuffer);
+        square.colors = [];
+        for (var i=0; i < squareVertexPositionBuffer.numItems; i++) {
+          square.colors = square.colors.concat([50,50,50, 1.0]);
+        }
+        squareVertexColorBuffer.itemSize = 4
+        squareVertexColorBuffer.numItems= 24
+
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(square.colors), gl.STATIC_DRAW);
+      }
+      var rTri = 0
+      var rSquare = 0
+      var triSixty = 0
+      var rSQSixty = 0
+
+
+      function drawScene() {
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight)
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+        mat4.perspective(pMatrix, glMatrix.toRadian(50), gl.viewportWidth / gl.viewportHeight, 0.1, 100.0)
+        mat4.identity(mvMatrix)
+
+        if(Math.floor(rTri/40) != triSixty){
+          triSixty+=1
+          gl.bindBuffer(gl.ARRAY_BUFFER, hurufVertexColorBuffer);
+          square.colors = []
+          huruf.colors = []
+          for (var i=0; i < hurufVertexPositionBuffer.numItems; i++) {
+            huruf.colors = huruf.colors.concat([Math.random(),Math.random(),Math.random(), 1.0]);
+          }
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(huruf.colors), gl.STATIC_DRAW);
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexColorBuffer);
+          for (var i=0; i < squareVertexPositionBuffer.numItems; i++) {
+            square.colors = square.colors.concat([Math.random(),Math.random(),Math.random(), 1.0]);
+          }
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(square.colors), gl.STATIC_DRAW);
+        }
+        if(triSixty > 9){triSixty=0}
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, hurufVertexPositionBuffer)
+        huruf.mPos = get3DTranslation(huruf.mPos,huruf.x_speed,huruf.y_speed,huruf.z_speed);
+        huruf.x+=huruf.x_speed
+        huruf.y+=huruf.y_speed
+        huruf.z+=huruf.z_speed
+        huruf.mPos = get2DRotation(huruf.mPos,toRadians(1),3,huruf.x,huruf.z,0,2)
+        
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(huruf.mPos), gl.STATIC_DRAW)
+
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, hurufVertexPositionBuffer)
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, hurufVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0)
+        gl.bindBuffer(gl.ARRAY_BUFFER, hurufVertexColorBuffer)
+        gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, hurufVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0)
+        setMatrixUniforms()
+        gl.drawArrays(gl.TRIANGLES, 0, hurufVertexPositionBuffer.numItems)
+        // mvPopMatrix();
+
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer)
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0)
+        gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexColorBuffer)
+        gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, squareVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0)
+        setMatrixUniforms()
+        gl.drawArrays(gl.LINES, 0, squareVertexPositionBuffer.numItems)
+
+      }
+      var lastTime = 0
+      function animate() {
+        var timeNow = new Date().getTime()
+        if (lastTime != 0) {
+          var elapsed = timeNow - lastTime
+          rTri += (90 * elapsed) / 1000.0
+          rSquare += (75 * elapsed) / 1000.0
+          if(rTri > 360){rTri = 0}
+          if(rSquare > 360){rSquare = 0}
+
+        }
+        lastTime = timeNow
+      }
+      function tick() {
+        requestAnimationFrame(tick)
+        drawScene()
+        animate()
+      }
+      function webGLStart() {
+        var canvas = document.getElementById('mycanvas')
+        initGL(canvas)
+        initShaders()
+        initBuffers()
+        gl.clearColor(0.0, 0.0, 0.0, 1.0)
+        gl.enable(gl.DEPTH_TEST)
+        tick()
+      }
+    </script>
+  </head>
+  <body onload="webGLStart();">
+    <canvas id="mycanvas" style="border: none" width="1000" height="900"></canvas>
+    <h1 id="cur-sudut">tes</h1>
+  </body>
+</html>
